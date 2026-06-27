@@ -6,7 +6,6 @@ import {
   AlignRight,
   ArrowDownToLine,
   ArrowUpToLine,
-  Bold,
   ChevronDown,
   ChevronUp,
   Italic,
@@ -114,9 +113,8 @@ export function Inspector({
         <p className="text-xs text-muted-foreground">{LAYOUT_HINT[layoutValue]}</p>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Layout</Label>
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">
+        <AccordionSection title="Layout">
           <Select
             value={layoutValue}
             onValueChange={(layout) => {
@@ -140,32 +138,29 @@ export function Inspector({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </AccordionSection>
 
         {!isFeatureGraphic && (
-          <BackgroundControls
-            bg={slide.bg}
-            inverted={!!slide.inverted}
-            onChange={(bg, inverted) => onChange({ bg, inverted })}
-          />
+          <AccordionSection title="Background">
+            <BackgroundControls
+              bg={slide.bg}
+              inverted={!!slide.inverted}
+              onChange={(bg, inverted) => onChange({ bg, inverted })}
+            />
+          </AccordionSection>
         )}
 
         {!isFeatureGraphic && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Label</Label>
+          <AccordionSection title="Label">
             <Input
               value={localeLabel}
               onChange={(e) => setLocaleField("label", e.target.value)}
               placeholder={labelPlaceholder}
             />
-          </div>
+          </AccordionSection>
         )}
 
-        <div className="space-y-1.5">
-          <div className="flex items-baseline justify-between">
-            <Label className="text-xs">{isFeatureGraphic ? "Tagline" : "Headline"}</Label>
-            <span className="text-[10px] text-muted-foreground">newline = break</span>
-          </div>
+        <AccordionSection title={isFeatureGraphic ? "Tagline" : "Headline"} hint="newline = break">
           <Textarea
             value={localeHeadline}
             onChange={(e) => setLocaleField("headline", e.target.value)}
@@ -178,44 +173,39 @@ export function Inspector({
               onChange={(hs) => onChange({ headlineStyle: hs })}
             />
           )}
-        </div>
+        </AccordionSection>
 
         {!isFeatureGraphic && !isNoDevice && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              {slide.layout === "two-devices" ? "Front device screenshot" : "Screenshot"}
-            </Label>
+          <AccordionSection title={slide.layout === "two-devices" ? "Screenshots" : "Screenshot"}>
             <ScreenshotPicker
-              label="Primary"
+              label={slide.layout === "two-devices" ? "Front device" : "Primary"}
               value={slide.screenshot}
               locale={locale}
               onChange={(v) => onChange({ screenshot: v })}
             />
-          </div>
-        )}
-
-        {slide.layout === "two-devices" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Back device screenshot</Label>
-            <ScreenshotPicker
-              label="Secondary (back layer)"
-              value={slide.screenshotSecondary || ""}
-              locale={locale}
-              onChange={(v) => onChange({ screenshotSecondary: v })}
-            />
-          </div>
+            {slide.layout === "two-devices" && (
+              <ScreenshotPicker
+                label="Secondary (back layer)"
+                value={slide.screenshotSecondary || ""}
+                locale={locale}
+                onChange={(v) => onChange({ screenshotSecondary: v })}
+              />
+            )}
+          </AccordionSection>
         )}
 
         {!isFeatureGraphic && (
-          <ElementTransformControls
-            slide={slide}
-            device={device}
-            orientation={orientation}
-            locale={locale}
-            selectedElementId={selectedElementId}
-            onChange={onChange}
-            onSelectElement={onSelectElement}
-          />
+          <AccordionSection title="Elements">
+            <ElementTransformControls
+              slide={slide}
+              device={device}
+              orientation={orientation}
+              locale={locale}
+              selectedElementId={selectedElementId}
+              onChange={onChange}
+              onSelectElement={onSelectElement}
+            />
+          </AccordionSection>
         )}
 
         {isFeatureGraphic && (
@@ -224,6 +214,36 @@ export function Inspector({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function AccordionSection({
+  title,
+  hint,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div className="rounded-md border bg-muted/30">
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="flex-1 text-xs font-semibold">{title}</span>
+        {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200${open ? " rotate-180" : ""}`}
+        />
+      </button>
+      {open && <div className="space-y-2 px-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -369,16 +389,13 @@ function ElementTransformControls({
   }
 
   return (
-    <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+    <div className="space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <Label className="text-xs font-semibold">Elements</Label>
-          <p className="text-[11px] text-muted-foreground">
-            {activeId
-              ? "Fine-tune the selected element's rotation and stacking."
-              : "Click an element on the canvas to fine-tune its rotation and stacking."}
-          </p>
-        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {activeId
+            ? "Fine-tune the selected element's rotation and stacking."
+            : "Click an element on the canvas to fine-tune its rotation and stacking."}
+        </p>
         <Button
           type="button"
           variant="outline"
@@ -736,22 +753,28 @@ function HeadlineStyleControls({
         >
           <Italic className="h-3.5 w-3.5" />
         </Button>
+      </div>
 
-        <div className="relative h-7 w-7 shrink-0" title={color ? `Color: ${color}` : "Headline color (theme default)"}>
+      {/* Color */}
+      <div className="flex items-center gap-2">
+        <Label className="mr-auto text-[11px] text-muted-foreground">Color</Label>
+        <div
+          className="relative h-7 w-14 shrink-0 cursor-pointer overflow-hidden rounded border"
+          title={color ? `Color: ${color}` : "Headline color (theme default)"}
+        >
           <Input
             type="color"
             value={color || "#000000"}
-            className="absolute inset-0 h-full w-full cursor-pointer rounded border p-0.5 opacity-0"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             onChange={(e) => patch({ color: e.target.value })}
           />
           <div
-            className="pointer-events-none flex h-full w-full items-center justify-center rounded border text-[11px]"
+            className="pointer-events-none flex h-full w-full items-center justify-center text-[10px] text-muted-foreground"
             style={color ? { background: color } : undefined}
           >
-            {!color && <Bold className="h-3.5 w-3.5 text-muted-foreground" />}
+            {!color && "auto"}
           </div>
         </div>
-
         {color && (
           <Button
             type="button"
@@ -830,9 +853,7 @@ function BackgroundControls({
   ];
 
   return (
-    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-      <Label className="text-xs font-semibold">Background</Label>
-
+    <div className="space-y-2">
       {/* Mode selector */}
       <div className="grid grid-cols-4 gap-1">
         {modes.map(({ key, label }) => (
