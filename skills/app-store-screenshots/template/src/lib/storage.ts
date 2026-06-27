@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PROJECT_SCHEMA_VERSION, STORAGE_KEY } from "./constants";
+import { PROJECT_SCHEMA_VERSION, storageKeyForProject } from "./constants";
 import { DEFAULT_PROJECT } from "./defaults";
 import { coerceLocalized } from "./locale";
 import type { Device, ElementTransform, ProjectState, Slide, TextElement } from "./types";
@@ -115,10 +115,10 @@ function mergeWithDefaults(parsed: Partial<ProjectState>): ProjectState {
   return merged;
 }
 
-function loadFromLocalStorage(): ProjectState | null {
+function loadFromLocalStorage(projectId: string): ProjectState | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKeyForProject(projectId));
     if (!raw) return null;
     return mergeWithDefaults(JSON.parse(raw) as Partial<ProjectState>);
   } catch {
@@ -126,12 +126,12 @@ function loadFromLocalStorage(): ProjectState | null {
   }
 }
 
-async function loadFromFile(): Promise<
-  { ok: true; state: ProjectState | null } | { ok: false; error: string }
-> {
+async function loadFromFile(
+  projectId: string,
+): Promise<{ ok: true; state: ProjectState | null } | { ok: false; error: string }> {
   if (typeof window === "undefined") return { ok: false, error: "Window is not available" };
   try {
-    const resp = await fetch("/api/project", { cache: "no-store" });
+    const resp = await fetch(`/api/project?id=${encodeURIComponent(projectId)}`, { cache: "no-store" });
     if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}` };
     const json = (await resp.json()) as { ok: boolean; state: Partial<ProjectState> | null };
     if (!json.ok) return { ok: false, error: "Project response was not ok" };
@@ -142,10 +142,13 @@ async function loadFromFile(): Promise<
   }
 }
 
-function saveToLocalStorage(state: ProjectState): { ok: true } | { ok: false; error: string } {
+function saveToLocalStorage(
+  projectId: string,
+  state: ProjectState,
+): { ok: true } | { ok: false; error: string } {
   if (typeof window === "undefined") return { ok: true };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(storageKeyForProject(projectId), JSON.stringify(state));
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -153,10 +156,13 @@ function saveToLocalStorage(state: ProjectState): { ok: true } | { ok: false; er
   }
 }
 
-async function saveToFile(state: ProjectState): Promise<{ ok: true } | { ok: false; error: string }> {
+async function saveToFile(
+  projectId: string,
+  state: ProjectState,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   if (typeof window === "undefined") return { ok: true };
   try {
-    const resp = await fetch("/api/project", {
+    const resp = await fetch(`/api/project?id=${encodeURIComponent(projectId)}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(state),
@@ -178,7 +184,7 @@ function applyUpdater(updater: Updater, prev: ProjectState): ProjectState {
   return typeof updater === "function" ? updater(prev) : updater;
 }
 
-export function useProject() {
+export function useProject(projectId: string) {
   const [state, _setState] = useState<ProjectState>(DEFAULT_PROJECT);
   const [hydrated, setHydrated] = useState(false);
   const [fileReady, setFileReady] = useState(false);
@@ -196,11 +202,20 @@ export function useProject() {
   // localStorage is consulted first for instant paint, then file overwrites if present.
   useEffect(() => {
     let cancelled = false;
-    const cached = loadFromLocalStorage();
+    _setState(DEFAULT_PROJECT);
+    setHydrated(false);
+    setFileReady(false);
+    setSavedAt(null);
+    setSaveError(null);
+    pastRef.current = [];
+    futureRef.current = [];
+    lastPushAt.current = 0;
+
+    const cached = loadFromLocalStorage(projectId);
     if (cached) _setState(cached);
 
     void (async () => {
-      const fromFile = await loadFromFile();
+      const fromFile = await loadFromFile(projectId);
       if (cancelled) return;
       if (fromFile.ok) {
         if (fromFile.state) {
@@ -222,15 +237,18 @@ export function useProject() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  // Re-run when the active project changes (parent keys the component, but
+  // this guard is here for safety if the hook is used without a key prop).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Debounced autosave to BOTH localStorage (fast, offline) and file (git-trackable).
   useEffect(() => {
     if (!hydrated || !fileReady) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      const localResult = saveToLocalStorage(state);
-      void saveToFile(state).then((fileResult) => {
+      const localResult = saveToLocalStorage(projectId, state);
+      void saveToFile(projectId, state).then((fileResult) => {
         if (fileResult.ok && localResult.ok) {
           setSavedAt(Date.now());
           setSaveError(null);
@@ -249,7 +267,7 @@ export function useProject() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [state, hydrated, fileReady]);
+  }, [state, hydrated, fileReady, projectId]);
 
   const setState = useCallback((updater: Updater) => {
     _setState((prev) => {

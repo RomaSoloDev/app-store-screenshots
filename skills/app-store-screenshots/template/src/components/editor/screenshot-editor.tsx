@@ -13,23 +13,105 @@ import { detectPlatform, nid } from "@/lib/defaults";
 import { isBuiltInElementId, isTextElementId, textElementKey } from "@/lib/elements";
 import { preloadImages } from "@/lib/image-cache";
 import { resolveScreenshot, writeLocalized } from "@/lib/locale";
+import { useProjects } from "@/lib/projects";
 import { useProject } from "@/lib/storage";
 import type {
   BuiltInElementId,
   Device,
   ElementId,
   ElementTransform,
+  ProjectMeta,
   SelectedElement,
   Slide,
 } from "@/lib/types";
 import { Inspector } from "./inspector";
 import { PreviewStage } from "./preview-stage";
+import { ProjectSwitcher } from "./project-switcher";
 import { Sidebar } from "./sidebar";
 import { DeckCanvas, getCanvas } from "./slide-canvas";
 import { Toolbar } from "./toolbar";
 
+// ---------- Outer wrapper — manages the project list ----------
+
 export function ScreenshotEditor() {
-  const { state, setState, hydrated, savedAt, saveError, reset, resetDevice, undo, redo } = useProject();
+  const {
+    projects,
+    activeProjectId,
+    loading,
+    setActiveProjectId,
+    createProject,
+    renameProject,
+    deleteProject,
+    syncProjectName,
+  } = useProjects();
+
+  const handleCreate = async () => {
+    const meta = await createProject("New Project");
+    if (meta) {
+      setActiveProjectId(meta.id);
+      toast.success(`Created project "${meta.name}"`);
+    } else {
+      toast.error("Failed to create project");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const target = projects.find((p) => p.id === id);
+    const ok = await deleteProject(id);
+    if (ok) {
+      toast.success(`Deleted "${target?.name ?? "project"}"`);
+    } else {
+      toast.error("Could not delete project — it may be the last one");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <p className="text-sm">Loading projects…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ScreenshotEditorInner
+      key={activeProjectId}
+      projectId={activeProjectId}
+      projects={projects}
+      onSwitchProject={setActiveProjectId}
+      onCreateProject={handleCreate}
+      onDeleteProject={handleDelete}
+      onRenameProject={renameProject}
+      onSyncProjectName={syncProjectName}
+    />
+  );
+}
+
+// ---------- Inner editor — one instance per project ----------
+
+type InnerProps = {
+  projectId: string;
+  projects: ProjectMeta[];
+  onSwitchProject: (id: string) => void;
+  onCreateProject: () => void;
+  onDeleteProject: (id: string) => void;
+  onRenameProject: (id: string, name: string) => void;
+  onSyncProjectName: (id: string, name: string) => void;
+};
+
+function ScreenshotEditorInner({
+  projectId,
+  projects,
+  onSwitchProject,
+  onCreateProject,
+  onDeleteProject,
+  onRenameProject,
+  onSyncProjectName,
+}: InnerProps) {
+  const { state, setState, hydrated, savedAt, saveError, reset, resetDevice, undo, redo } = useProject(projectId);
   const [activeSlideId, setActiveSlideId] = React.useState<string | null>(null);
   const [selectedElement, setSelectedElement] = React.useState<SelectedElement | null>(null);
   const [exporting, setExporting] = React.useState<string | null>(null);
@@ -42,6 +124,15 @@ export function ScreenshotEditor() {
   const activeSlide =
     currentSlides.find((s) => s.id === activeSlideId) || currentSlides[0] || null;
   const theme = themeById(state.themeId);
+
+  // Keep the project registry name in sync when the user edits the app name.
+  const prevAppName = React.useRef(state.appName);
+  React.useEffect(() => {
+    if (hydrated && state.appName !== prevAppName.current) {
+      prevAppName.current = state.appName;
+      onSyncProjectName(projectId, state.appName);
+    }
+  }, [hydrated, projectId, state.appName, onSyncProjectName]);
 
   React.useEffect(() => {
     if (selectedElement && selectedElement.slideId !== activeSlide?.id) {
@@ -554,6 +645,17 @@ export function ScreenshotEditor() {
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <Toaster position="top-right" richColors closeButton />
       <Toolbar
+        projectSwitcher={
+          <ProjectSwitcher
+            projects={projects}
+            activeProjectId={projectId}
+            disabled={busy}
+            onSwitch={onSwitchProject}
+            onCreate={onCreateProject}
+            onDelete={onDeleteProject}
+            onRename={onRenameProject}
+          />
+        }
         appName={state.appName}
         setAppName={(v) => setState((p) => ({ ...p, appName: v }))}
         connectedCanvas={state.connectedCanvas}

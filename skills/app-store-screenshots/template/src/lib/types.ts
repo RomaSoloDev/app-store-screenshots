@@ -86,6 +86,14 @@ export type Theme = {
   muted: string;
 };
 
+export type ProjectMeta = {
+  id: string;
+  name: string;
+  file: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ProjectState = {
   schemaVersion?: number;
   appName: string;

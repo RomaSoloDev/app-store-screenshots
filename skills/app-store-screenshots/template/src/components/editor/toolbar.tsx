@@ -26,6 +26,7 @@ import { detectPlatform } from "@/lib/defaults";
 import type { Device, Orientation } from "@/lib/types";
 
 type Props = {
+  projectSwitcher?: React.ReactNode;
   appName: string;
   setAppName: (v: string) => void;
   connectedCanvas: boolean;
@@ -66,6 +67,10 @@ export function Toolbar(props: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-card/40 px-4 py-2">
+      {props.projectSwitcher}
+
+      {props.projectSwitcher && <span aria-hidden className="mx-1 h-5 w-px bg-border" />}
+
       <Input
         value={props.appName}
         onChange={(e) => props.setAppName(e.target.value)}

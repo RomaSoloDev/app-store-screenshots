@@ -144,6 +144,20 @@ export function hasTheme(themeId: string | undefined): boolean {
   return !!themeId && !!THEMES[themeId];
 }
 
+export const DEFAULT_PROJECT_ID = "default";
+export const PROJECTS_DIR = "projects";
+export const DEFAULT_PROJECT_FILE = "projects/default.json";
+export const PROJECTS_FILE = "projects/index.json";
+export const ACTIVE_PROJECT_KEY = "app-store-screenshots:activeProjectId";
+
+// Per-project localStorage key. The default project reuses the legacy key for
+// backward-compatibility so existing browser caches aren't invalidated.
+export function storageKeyForProject(id: string): string {
+  if (id === DEFAULT_PROJECT_ID) return "app-store-screenshots:project:v1";
+  return `app-store-screenshots:project:${id}`;
+}
+
+/** @deprecated use storageKeyForProject(DEFAULT_PROJECT_ID) */
 export const STORAGE_KEY = "app-store-screenshots:project:v1";
 export const PROJECT_SCHEMA_VERSION = 2;
 

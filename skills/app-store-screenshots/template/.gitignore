@@ -5,3 +5,6 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Project state files (per-user data, not meant for version control)
+projects/
