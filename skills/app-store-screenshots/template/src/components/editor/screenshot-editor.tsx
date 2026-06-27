@@ -40,6 +40,7 @@ export function ScreenshotEditor() {
     loading,
     setActiveProjectId,
     createProject,
+    duplicateProject,
     renameProject,
     deleteProject,
     syncProjectName,
@@ -52,6 +53,16 @@ export function ScreenshotEditor() {
       toast.success(`Created project "${meta.name}"`);
     } else {
       toast.error("Failed to create project");
+    }
+  };
+
+  const handleDuplicate = async (id: string) => {
+    const meta = await duplicateProject(id);
+    if (meta) {
+      setActiveProjectId(meta.id);
+      toast.success(`Duplicated as "${meta.name}"`);
+    } else {
+      toast.error("Failed to duplicate project");
     }
   };
 
@@ -83,6 +94,7 @@ export function ScreenshotEditor() {
       projects={projects}
       onSwitchProject={setActiveProjectId}
       onCreateProject={handleCreate}
+      onDuplicateProject={handleDuplicate}
       onDeleteProject={handleDelete}
       onRenameProject={renameProject}
       onSyncProjectName={syncProjectName}
@@ -97,6 +109,7 @@ type InnerProps = {
   projects: ProjectMeta[];
   onSwitchProject: (id: string) => void;
   onCreateProject: () => void;
+  onDuplicateProject: (id: string) => void;
   onDeleteProject: (id: string) => void;
   onRenameProject: (id: string, name: string) => void;
   onSyncProjectName: (id: string, name: string) => void;
@@ -107,6 +120,7 @@ function ScreenshotEditorInner({
   projects,
   onSwitchProject,
   onCreateProject,
+  onDuplicateProject,
   onDeleteProject,
   onRenameProject,
   onSyncProjectName,
@@ -176,6 +190,9 @@ function ScreenshotEditorInner({
         } else {
           paths.add(raw);
         }
+      }
+      if (s.bg?.type === "image" && s.bg.src && !s.bg.src.startsWith("data:")) {
+        paths.add(s.bg.src);
       }
     }
     return Array.from(paths).sort();
@@ -652,6 +669,7 @@ function ScreenshotEditorInner({
             disabled={busy}
             onSwitch={onSwitchProject}
             onCreate={onCreateProject}
+            onDuplicate={onDuplicateProject}
             onDelete={onDeleteProject}
             onRename={onRenameProject}
           />

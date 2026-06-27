@@ -236,8 +236,10 @@ function Caption({
   // Scale typography off the *shorter* dimension so landscape layouts don't
   // produce headlines so tall they overlap the device frame.
   const unit = Math.min(cW, cH);
+  const hs = slide.headlineStyle;
+  const headlineAlign = hs?.align ?? align;
   return (
-    <div style={{ textAlign: align, position: "relative", width: "100%" }}>
+    <div style={{ textAlign: headlineAlign, position: "relative", width: "100%" }}>
       <EditableText
         value={pickText(slide.label, locale)}
         editable={editable}
@@ -262,11 +264,12 @@ function Caption({
         onFocus={onFocus}
         placeholder="Headline goes here"
         style={{
-          fontSize: unit * 0.092,
-          fontWeight: 700,
+          fontSize: unit * 0.092 * (hs?.size ?? 1),
+          fontWeight: hs?.weight ?? 700,
+          fontStyle: hs?.italic ? "italic" : undefined,
           lineHeight: 0.96,
           letterSpacing: -unit * 0.001,
-          color: fg,
+          color: hs?.color ?? fg,
         }}
       />
     </div>
@@ -721,18 +724,55 @@ function SlideBackground({
   theme: Theme;
 }) {
   const inverted = !!slide.inverted;
+  const bg = slide.bg;
+
+  // Custom image background: full-cover photo, no blobs.
+  if (bg?.type === "image") {
+    const src = img(bg.src);
+    return (
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#000" }}>
+        {src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt=""
+            draggable={false}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Compute background CSS value.
+  let background: string;
+  if (bg?.type === "solid") {
+    background = bg.color;
+  } else if (bg?.type === "gradient") {
+    background = `linear-gradient(${bg.angle ?? 160}deg, ${bg.from} 0%, ${bg.to} 100%)`;
+  } else {
+    background = backgroundFor(theme, inverted);
+  }
+
+  // Suppress decorative blobs for custom (non-theme) backgrounds.
+  const showBlobs = !bg;
+
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
         overflow: "hidden",
-        background: backgroundFor(theme, inverted),
+        background,
         color: inverted ? theme.fgAlt : theme.fg,
       }}
     >
-      <Blob cW={cW} color={theme.accent} x={-15} y={-10} size={55} opacity={inverted ? 0.25 : 0.32} />
-      <Blob cW={cW} color={theme.accent} x={70} y={75} size={45} opacity={inverted ? 0.18 : 0.25} />
+      {showBlobs && (
+        <>
+          <Blob cW={cW} color={theme.accent} x={-15} y={-10} size={55} opacity={inverted ? 0.25 : 0.32} />
+          <Blob cW={cW} color={theme.accent} x={70} y={75} size={45} opacity={inverted ? 0.18 : 0.25} />
+        </>
+      )}
     </div>
   );
 }

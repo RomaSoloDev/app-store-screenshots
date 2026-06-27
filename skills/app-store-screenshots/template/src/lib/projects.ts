@@ -64,6 +64,28 @@ export function useProjects() {
     }
   }, []);
 
+  const duplicateProject = useCallback(async (id: string): Promise<ProjectMeta | null> => {
+    try {
+      const resp = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ copyFrom: id }),
+      });
+      const json = (await resp.json()) as { ok: boolean; project: ProjectMeta };
+      if (!json.ok) return null;
+      setProjects((prev) => {
+        // Insert the copy right after the original.
+        const idx = prev.findIndex((p) => p.id === id);
+        const next = [...prev];
+        next.splice(idx === -1 ? next.length : idx + 1, 0, json.project);
+        return next;
+      });
+      return json.project;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const renameProject = useCallback(async (id: string, name: string): Promise<void> => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -123,6 +145,7 @@ export function useProjects() {
     loading,
     setActiveProjectId,
     createProject,
+    duplicateProject,
     renameProject,
     deleteProject,
     syncProjectName,

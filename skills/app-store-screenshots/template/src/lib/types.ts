@@ -55,6 +55,24 @@ export type TextElement = {
   align?: "left" | "center" | "right";
 };
 
+// Per-slide headline style overrides. All fields are optional — absent means use default.
+export type HeadlineStyle = {
+  /** Multiplier on the base canvas-relative font size (default 1.0). Range 0.4–2.5. */
+  size?: number;
+  /** CSS font-weight (e.g. 400, 700, 900). Default 700. */
+  weight?: number;
+  italic?: boolean;
+  /** Hex color override. If absent, the theme foreground color is used. */
+  color?: string;
+  align?: "left" | "center" | "right";
+};
+
+// Per-slide background override. When absent the slide uses the theme gradient.
+export type SlideBackgroundConfig =
+  | { type: "solid"; color: string }
+  | { type: "gradient"; from: string; to: string; angle?: number }
+  | { type: "image"; src: string };
+
 export type Slide = {
   id: string;
   layout: SlideLayout;
@@ -62,7 +80,9 @@ export type Slide = {
   headline: LocalizedText;    // multi-line; newlines are intentional, per locale
   screenshot: string;         // path under /screenshots/ — may contain {locale}
   screenshotSecondary?: string; // for two-devices layout — may contain {locale}
-  inverted?: boolean;         // dark background variant
+  inverted?: boolean;           // dark background variant / text colour flip
+  bg?: SlideBackgroundConfig;   // custom background (overrides theme gradient)
+  headlineStyle?: HeadlineStyle; // per-slide headline typography overrides
   // Per-element overrides; when present, replaces layout default placement.
   transforms?: Partial<Record<BuiltInElementId, ElementTransform>>;
   textElements?: TextElement[];

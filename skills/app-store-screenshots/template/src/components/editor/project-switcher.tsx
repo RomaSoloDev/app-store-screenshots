@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Check, ChevronDown, FolderOpen, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Copy, FolderOpen, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ type Props = {
   disabled?: boolean;
   onSwitch: (id: string) => void;
   onCreate: () => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
 };
@@ -28,6 +29,7 @@ export function ProjectSwitcher({
   disabled,
   onSwitch,
   onCreate,
+  onDuplicate,
   onDelete,
   onRename,
 }: Props) {
@@ -61,6 +63,12 @@ export function ProjectSwitcher({
     if (e.key === "Enter") commitRename();
     if (e.key === "Escape") cancelRename();
     e.stopPropagation();
+  };
+
+  const handleDuplicate = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setOpen(false);
+    onDuplicate(id);
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -129,15 +137,26 @@ export function ProjectSwitcher({
                     <X className="h-3 w-3" />
                   </Button>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                    onClick={(e) => startRename(e, project)}
-                    title="Rename project"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      onClick={(e) => startRename(e, project)}
+                      title="Rename project"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      onClick={(e) => handleDuplicate(e, project.id)}
+                      title="Duplicate project"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="ghost"

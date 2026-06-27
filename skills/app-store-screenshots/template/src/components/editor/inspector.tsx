@@ -6,9 +6,12 @@ import {
   AlignRight,
   ArrowDownToLine,
   ArrowUpToLine,
+  Bold,
   ChevronDown,
   ChevronUp,
+  Italic,
   Plus,
+  RotateCcw,
   RotateCw,
   Trash2,
   Type,
@@ -38,8 +41,10 @@ import type {
   Device,
   ElementId,
   ElementTransform,
+  HeadlineStyle,
   Orientation,
   Slide,
+  SlideBackgroundConfig,
   SlideLayout,
   TextElement,
 } from "@/lib/types";
@@ -138,6 +143,14 @@ export function Inspector({
         </div>
 
         {!isFeatureGraphic && (
+          <BackgroundControls
+            bg={slide.bg}
+            inverted={!!slide.inverted}
+            onChange={(bg, inverted) => onChange({ bg, inverted })}
+          />
+        )}
+
+        {!isFeatureGraphic && (
           <div className="space-y-1.5">
             <Label className="text-xs">Label</Label>
             <Input
@@ -159,6 +172,12 @@ export function Inspector({
             rows={3}
             placeholder={headlinePlaceholder}
           />
+          {!isFeatureGraphic && (
+            <HeadlineStyleControls
+              value={slide.headlineStyle}
+              onChange={(hs) => onChange({ headlineStyle: hs })}
+            />
+          )}
         </div>
 
         {!isFeatureGraphic && !isNoDevice && (
@@ -607,4 +626,351 @@ function defaultZ(id: ElementId): number {
   if (id === "deviceSecondary") return 2;
   if (id === "device") return 3;
   return 4; // caption on top
+}
+
+// ---------- Headline style controls ----------
+
+const WEIGHT_OPTIONS = [
+  { label: "Thin", value: 300 },
+  { label: "Regular", value: 400 },
+  { label: "Medium", value: 500 },
+  { label: "SemiBold", value: 600 },
+  { label: "Bold", value: 700 },
+  { label: "ExtraBold", value: 800 },
+  { label: "Black", value: 900 },
+];
+
+function HeadlineStyleControls({
+  value,
+  onChange,
+}: {
+  value: HeadlineStyle | undefined;
+  onChange: (hs: HeadlineStyle | undefined) => void;
+}) {
+  const size = value?.size ?? 1;
+  const weight = value?.weight ?? 700;
+  const italic = value?.italic ?? false;
+  const color = value?.color;
+  const align = value?.align;
+
+  const hasOverrides = !!(value && (
+    (value.size !== undefined && value.size !== 1) ||
+    (value.weight !== undefined && value.weight !== 700) ||
+    value.italic ||
+    value.color ||
+    value.align
+  ));
+
+  function patch(patch: Partial<HeadlineStyle>) {
+    const next = { ...(value ?? {}), ...patch };
+    // Strip fields that equal their defaults so the JSON stays clean.
+    if (next.size === 1) delete next.size;
+    if (next.weight === 700) delete next.weight;
+    if (!next.italic) delete next.italic;
+    if (!next.color) delete next.color;
+    if (!next.align) delete next.align;
+    onChange(Object.keys(next).length > 0 ? next : undefined);
+  }
+
+  return (
+    <div className="space-y-2 rounded border bg-muted/20 p-2.5">
+      {/* Size */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Size</Label>
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-[36px] text-right text-[11px] tabular-nums text-muted-foreground">
+              {Math.round(size * 100)}%
+            </span>
+            {hasOverrides && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                onClick={() => onChange(undefined)}
+                title="Reset all headline style overrides"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <input
+          type="range"
+          min={40}
+          max={250}
+          step={5}
+          value={Math.round(size * 100)}
+          className="w-full"
+          onChange={(e) => patch({ size: Number(e.target.value) / 100 })}
+        />
+      </div>
+
+      {/* Weight + Italic + Color */}
+      <div className="flex items-center gap-1.5">
+        <Select
+          value={String(weight)}
+          onValueChange={(v) => patch({ weight: Number(v) })}
+        >
+          <SelectTrigger className="h-7 flex-1 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {WEIGHT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={String(opt.value)}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          variant={italic ? "secondary" : "outline"}
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={() => patch({ italic: !italic })}
+          aria-pressed={italic}
+          title="Italic"
+        >
+          <Italic className="h-3.5 w-3.5" />
+        </Button>
+
+        <div className="relative h-7 w-7 shrink-0" title={color ? `Color: ${color}` : "Headline color (theme default)"}>
+          <Input
+            type="color"
+            value={color || "#000000"}
+            className="absolute inset-0 h-full w-full cursor-pointer rounded border p-0.5 opacity-0"
+            onChange={(e) => patch({ color: e.target.value })}
+          />
+          <div
+            className="pointer-events-none flex h-full w-full items-center justify-center rounded border text-[11px]"
+            style={color ? { background: color } : undefined}
+          >
+            {!color && <Bold className="h-3.5 w-3.5 text-muted-foreground" />}
+          </div>
+        </div>
+
+        {color && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground"
+            onClick={() => patch({ color: undefined })}
+            title="Reset to theme color"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+
+      {/* Alignment */}
+      <div className="flex items-center gap-1">
+        <Label className="mr-auto text-[11px] text-muted-foreground">Align</Label>
+        {(["left", "center", "right"] as const).map((a) => (
+          <Button
+            key={a}
+            type="button"
+            variant={align === a ? "secondary" : "outline"}
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => patch({ align: align === a ? undefined : a })}
+            title={`Align ${a}`}
+          >
+            {a === "left" && <AlignLeft className="h-3.5 w-3.5" />}
+            {a === "center" && <AlignCenter className="h-3.5 w-3.5" />}
+            {a === "right" && <AlignRight className="h-3.5 w-3.5" />}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Background controls ----------
+
+type BgMode = "theme" | "solid" | "gradient" | "image";
+
+function bgMode(bg: SlideBackgroundConfig | undefined): BgMode {
+  if (!bg) return "theme";
+  return bg.type === "solid" ? "solid" : bg.type === "gradient" ? "gradient" : "image";
+}
+
+function BackgroundControls({
+  bg,
+  inverted,
+  onChange,
+}: {
+  bg: SlideBackgroundConfig | undefined;
+  inverted: boolean;
+  onChange: (bg: SlideBackgroundConfig | undefined, inverted: boolean) => void;
+}) {
+  const mode = bgMode(bg);
+
+  const solidColor = bg?.type === "solid" ? bg.color : "#5B7CFA";
+  const gradFrom = bg?.type === "gradient" ? bg.from : "#5B7CFA";
+  const gradTo = bg?.type === "gradient" ? bg.to : "#0B1020";
+  const gradAngle = bg?.type === "gradient" ? (bg.angle ?? 160) : 160;
+  const imageSrc = bg?.type === "image" ? bg.src : "";
+
+  function setMode(next: BgMode) {
+    if (next === "theme") { onChange(undefined, inverted); return; }
+    if (next === "solid") { onChange({ type: "solid", color: solidColor }, inverted); return; }
+    if (next === "gradient") { onChange({ type: "gradient", from: gradFrom, to: gradTo, angle: gradAngle }, inverted); return; }
+    if (next === "image") { onChange({ type: "image", src: imageSrc }, inverted); return; }
+  }
+
+  const modes: { key: BgMode; label: string }[] = [
+    { key: "theme", label: "Theme" },
+    { key: "solid", label: "Solid" },
+    { key: "gradient", label: "Gradient" },
+    { key: "image", label: "Image" },
+  ];
+
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+      <Label className="text-xs font-semibold">Background</Label>
+
+      {/* Mode selector */}
+      <div className="grid grid-cols-4 gap-1">
+        {modes.map(({ key, label }) => (
+          <Button
+            key={key}
+            type="button"
+            variant={mode === key ? "secondary" : "outline"}
+            size="sm"
+            className="h-7 px-0 text-[11px]"
+            onClick={() => setMode(key)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Theme mode: inverted toggle */}
+      {mode === "theme" && (
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={inverted}
+            onChange={(e) => onChange(bg, e.target.checked)}
+            className="h-3.5 w-3.5 accent-primary"
+          />
+          <span className="text-xs text-muted-foreground">Inverted (dark bg variant)</span>
+        </label>
+      )}
+
+      {/* Solid color */}
+      {mode === "solid" && (
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Color</Label>
+          <Input
+            type="color"
+            value={solidColor}
+            className="h-8 w-14 shrink-0 cursor-pointer p-1"
+            onChange={(e) =>
+              onChange({ type: "solid", color: e.target.value }, inverted)
+            }
+          />
+          <Input
+            value={solidColor}
+            className="h-8 font-mono text-xs"
+            maxLength={7}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^#[0-9a-fA-F]{0,6}$/.test(v))
+                onChange({ type: "solid", color: v.length === 7 ? v : solidColor }, inverted);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Gradient */}
+      {mode === "gradient" && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">From</Label>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="color"
+                  value={gradFrom}
+                  className="h-7 w-9 shrink-0 cursor-pointer p-0.5"
+                  onChange={(e) =>
+                    onChange({ type: "gradient", from: e.target.value, to: gradTo, angle: gradAngle }, inverted)
+                  }
+                />
+                <Input
+                  value={gradFrom}
+                  className="h-7 min-w-0 font-mono text-[11px]"
+                  maxLength={7}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v) && v.length === 7)
+                      onChange({ type: "gradient", from: v, to: gradTo, angle: gradAngle }, inverted);
+                  }}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-muted-foreground">To</Label>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="color"
+                  value={gradTo}
+                  className="h-7 w-9 shrink-0 cursor-pointer p-0.5"
+                  onChange={(e) =>
+                    onChange({ type: "gradient", from: gradFrom, to: e.target.value, angle: gradAngle }, inverted)
+                  }
+                />
+                <Input
+                  value={gradTo}
+                  className="h-7 min-w-0 font-mono text-[11px]"
+                  maxLength={7}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v) && v.length === 7)
+                      onChange({ type: "gradient", from: gradFrom, to: v, angle: gradAngle }, inverted);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground">Angle</Label>
+              <span className="text-[11px] tabular-nums text-muted-foreground">{gradAngle}°</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={360}
+              step={1}
+              value={gradAngle}
+              className="w-full"
+              onChange={(e) =>
+                onChange({ type: "gradient", from: gradFrom, to: gradTo, angle: Number(e.target.value) }, inverted)
+              }
+            />
+          </div>
+          {/* Live preview swatch */}
+          <div
+            className="h-6 w-full rounded border"
+            style={{ background: `linear-gradient(${gradAngle}deg, ${gradFrom} 0%, ${gradTo} 100%)` }}
+          />
+        </div>
+      )}
+
+      {/* Image */}
+      {mode === "image" && (
+        <ScreenshotPicker
+          label="Background image"
+          value={imageSrc}
+          onChange={(v) => onChange({ type: "image", src: v }, inverted)}
+        />
+      )}
+    </div>
+  );
 }

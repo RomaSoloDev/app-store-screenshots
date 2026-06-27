@@ -1,0 +1,10 @@
+{
+  "name": "app-store-screenshots-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix skills/app-store-screenshots/template",
+    "build": "npm run build --prefix skills/app-store-screenshots/template",
+    "start": "npm run start --prefix skills/app-store-screenshots/template",
+    "install:app": "npm install --legacy-peer-deps --prefix skills/app-store-screenshots/template"
+  }
+}

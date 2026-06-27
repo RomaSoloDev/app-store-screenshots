@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PROJECT_SCHEMA_VERSION, storageKeyForProject } from "./constants";
 import { DEFAULT_PROJECT } from "./defaults";
 import { coerceLocalized } from "./locale";
-import type { Device, ElementTransform, ProjectState, Slide, TextElement } from "./types";
+import type { Device, ElementTransform, HeadlineStyle, ProjectState, Slide, SlideBackgroundConfig, TextElement } from "./types";
 
 const HISTORY_LIMIT = 50;
 // Coalesce rapid edits (typing, slider drags) into a single undo step.
@@ -53,6 +53,38 @@ function cleanTextElement(value: unknown): TextElement | undefined {
   };
 }
 
+function cleanHeadlineStyle(value: unknown): HeadlineStyle | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const result: HeadlineStyle = {};
+  if (typeof raw.size === "number" && Number.isFinite(raw.size)) result.size = Math.max(0.1, Math.min(4, raw.size));
+  if (typeof raw.weight === "number" && Number.isFinite(raw.weight)) result.weight = raw.weight;
+  if (typeof raw.italic === "boolean") result.italic = raw.italic;
+  if (typeof raw.color === "string") result.color = raw.color;
+  if (raw.align === "left" || raw.align === "center" || raw.align === "right") result.align = raw.align;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function cleanBackground(value: unknown): SlideBackgroundConfig | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  if (raw.type === "solid" && typeof raw.color === "string") {
+    return { type: "solid", color: raw.color };
+  }
+  if (raw.type === "gradient" && typeof raw.from === "string" && typeof raw.to === "string") {
+    return {
+      type: "gradient",
+      from: raw.from,
+      to: raw.to,
+      ...(typeof raw.angle === "number" && Number.isFinite(raw.angle) ? { angle: raw.angle } : {}),
+    };
+  }
+  if (raw.type === "image" && typeof raw.src === "string") {
+    return { type: "image", src: raw.src };
+  }
+  return undefined;
+}
+
 // Migrate older projects into the current schema while keeping legacy decks
 // visually stable until they explicitly opt into connected canvas.
 function migrateSlide(slide: Slide): Slide {
@@ -67,10 +99,14 @@ function migrateSlide(slide: Slide): Slide {
     ? slide.textElements.map(cleanTextElement).filter((t): t is TextElement => !!t)
     : undefined;
 
+  const bg = cleanBackground(slide.bg);
+  const headlineStyle = cleanHeadlineStyle(slide.headlineStyle);
   return {
     ...slide,
     label: coerceLocalized(slide.label as unknown),
     headline: coerceLocalized(slide.headline as unknown),
+    ...(bg ? { bg } : { bg: undefined }),
+    ...(headlineStyle ? { headlineStyle } : { headlineStyle: undefined }),
     ...(transforms && Object.keys(transforms).length > 0 ? { transforms } : { transforms: undefined }),
     ...(textElements && textElements.length > 0 ? { textElements } : { textElements: undefined }),
   };
